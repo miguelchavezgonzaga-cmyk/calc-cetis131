@@ -1,0 +1,16 @@
+name: calc_cientifica_cetis131
+description: Calculadora Científica - Miguel Alejandro Chavez Gonzaga - CETIS 131
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/logo_cetis.jpg
