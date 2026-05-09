@@ -10,14 +10,14 @@
       - name: Get Flutter packages
         script: flutter pub get
       - name: Generate iOS project files
+        script: flutter create --platforms=ios --project-name calc_cientifica_cetis131 .
+      - name: Fix iOS deployment target
         script: |
-          flutter create --platforms=ios .
+          sed -i '' "s/platform :ios, '12.0'/platform :ios, '13.0'/" ios/Podfile
       - name: Install pods
-        script: |
-          cd ios && pod install
+        script: cd ios && pod install
       - name: Build IPA (no code sign)
-        script: |
-          flutter build ios --release --no-codesign
+        script: flutter build ios --release --no-codesign
       - name: Archive IPA unsigned
         script: |
           cd build/ios/iphoneos
