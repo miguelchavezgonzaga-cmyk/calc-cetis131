@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+/// Nombre del alumno (splash y encabezado).
+const String kAuthorFullName = 'Miguel Alejandro Chavez Gonzaga';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,11 +21,21 @@ class CalcApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFFCC0000),
+        brightness: Brightness.dark,
+        surface: const Color(0xFF0A0A0A),
+      ),
+    );
     return MaterialApp(
       title: 'Calc Científica CETIS 131',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
+      theme: base.copyWith(
         scaffoldBackgroundColor: const Color(0xFF000000),
+        splashFactory: InkSparkle.splashFactory,
       ),
       home: const SplashScreen(),
     );
@@ -39,117 +53,234 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
+    with TickerProviderStateMixin {
+  late AnimationController _intro;
+  late AnimationController _progress;
   late Animation<double> _fade;
   late Animation<double> _scale;
+  late Animation<Offset> _slideText;
+  late Animation<double> _barValue;
+  Timer? _navTimer;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1400));
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
-    _scale = Tween<double>(begin: 0.75, end: 1.0)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
-    _ctrl.forward();
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fade = CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic);
+    _scale = Tween<double>(begin: 0.82, end: 1.0).animate(
+      CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic),
+    );
+    _slideText = Tween<Offset>(
+      begin: const Offset(0, 0.12),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic));
 
-    Future.delayed(const Duration(milliseconds: 2800), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            transitionDuration: const Duration(milliseconds: 600),
-            pageBuilder: (_, __, ___) => const CalculatorScreen(),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-          ),
-        );
-      }
+    _progress = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+    _barValue = CurvedAnimation(parent: _progress, curve: Curves.easeInOut);
+
+    _intro.forward();
+    _progress.forward();
+
+    _navTimer = Timer(const Duration(milliseconds: 3200), () {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 500),
+          pageBuilder: (_, __, ___) => const CalculatorScreen(),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+        ),
+      );
     });
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _navTimer?.cancel();
+    _intro.dispose();
+    _progress.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final h = MediaQuery.sizeOf(context).height;
+    final logoSize = (h * 0.22).clamp(120.0, 200.0);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
-      body: FadeTransition(
-        opacity: _fade,
-        child: ScaleTransition(
-          scale: _scale,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo con sombra roja tipo CETIS
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFCC0000).withOpacity(0.5),
-                        blurRadius: 40,
-                        spreadRadius: 8,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF121212),
+              Color(0xFF0A0A0A),
+              Color(0xFF140808),
+            ],
+            stops: [0.0, 0.55, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: math.max(
+                      320.0,
+                      h - MediaQuery.paddingOf(context).vertical - 48,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFCC0000).withValues(alpha: 0.85),
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFCC0000).withValues(alpha: 0.35),
+                              blurRadius: 32,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/logo_cetis.jpg',
+                            width: logoSize,
+                            height: logoSize,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: logoSize,
+                              height: logoSize,
+                              color: const Color(0xFF222222),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.school_rounded,
+                                color: Color(0xFFCC0000),
+                                size: 64,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      const Text(
+                        'CETIS 131',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFFCC0000),
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Calculadora científica',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 36),
+                      SlideTransition(
+                        position: _slideText,
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'Alumno',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.45),
+                                      fontSize: 11,
+                                      letterSpacing: 2,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    kAuthorFullName,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFFE8E8E8),
+                                      fontSize: 16,
+                                      height: 1.35,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      SizedBox(
+                        width: 200,
+                        child: AnimatedBuilder(
+                          animation: _barValue,
+                          builder: (_, __) => ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: _barValue.value,
+                              minHeight: 5,
+                              backgroundColor: const Color(0xFF2A2A2A),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xFFCC0000),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Cargando…',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 12,
+                          letterSpacing: 1.2,
+                        ),
                       ),
                     ],
                   ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/logo_cetis.jpg',
-                      width: 160,
-                      height: 160,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
                 ),
-                const SizedBox(height: 32),
-                const Text(
-                  'CETIS 131',
-                  style: TextStyle(
-                    color: Color(0xFFCC0000),
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 6,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Calculadora Científica',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                const Divider(
-                    color: Color(0xFF333333), indent: 60, endIndent: 60),
-                const SizedBox(height: 24),
-                const Text(
-                  'Miguel Alejandro Chavez Gonzaga',
-                  style: TextStyle(
-                    color: Color(0xFFAAAAAA),
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                SizedBox(
-                  width: 140,
-                  child: LinearProgressIndicator(
-                    backgroundColor: const Color(0xFF222222),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFFCC0000)),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -184,7 +315,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   double get _currentValue => double.tryParse(_display) ?? 0;
 
   double _toRad(double v) => _isDeg ? v * math.pi / 180 : v;
-  double _toDeg(double v) => _isDeg ? v : v * 180 / math.pi;
+
+  /// Convierte un ángulo en radianes (p. ej. salida de asin) al modo DEG/RAD mostrado.
+  double _fromInvTrigRad(double rad) =>
+      _isDeg ? rad * 180 / math.pi : rad;
 
   void _updateDisplay(String val) {
     if (val.length > 15) val = val.substring(0, 15);
@@ -237,7 +371,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   void _onCE() {
     setState(() {
       _display = '0';
-      _waitingForOperand = false;
+      _waitingForOperand = _operator.isNotEmpty;
+      _hasResult = false;
     });
   }
 
@@ -260,10 +395,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   // ── binary operator ───────────────────────────
   void _onOperator(String op) {
+    if (_operator.isNotEmpty && !_waitingForOperand) {
+      _calculate();
+    }
     setState(() {
-      if (_operator.isNotEmpty && !_waitingForOperand) {
-        _calculate();
-      }
       _firstOperand = _currentValue;
       _operator = op;
       _waitingForOperand = true;
@@ -328,13 +463,13 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         result = math.tan(_toRad(v));
         break;
       case 'asin':
-        result = _toDeg(math.asin(v));
+        result = _fromInvTrigRad(math.asin(v));
         break;
       case 'acos':
-        result = _toDeg(math.acos(v));
+        result = _fromInvTrigRad(math.acos(v));
         break;
       case 'atan':
-        result = _toDeg(math.atan(v));
+        result = _fromInvTrigRad(math.atan(v));
         break;
       case 'sinh':
         result = (math.exp(v) - math.exp(-v)) / 2;
@@ -346,6 +481,17 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         final e2x = math.exp(2 * v);
         result = (e2x - 1) / (e2x + 1);
         break;
+      case 'asinh':
+        result = math.log(v + math.sqrt(v * v + 1));
+        break;
+      case 'acosh':
+        result = v < 1 ? double.nan : math.log(v + math.sqrt(v * v - 1));
+        break;
+      case 'atanh':
+        result = v <= -1 || v >= 1
+            ? double.nan
+            : 0.5 * math.log((1 + v) / (1 - v));
+        break;
       case 'log':
         result = v <= 0 ? double.nan : math.log(v) / math.ln10;
         break;
@@ -353,9 +499,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         result = v <= 0 ? double.nan : math.log(v);
         break;
       case 'log2':
-        result = v <= 0 ? double.nan : math.log(v) / math.log2e / math.log2e;
-        // correct:
-        result = v <= 0 ? double.nan : math.log(v) / math.log(2);
+        result = v <= 0 ? double.nan : math.log(v) / math.ln2;
         break;
       case '10ˣ':
         result = math.pow(10, v).toDouble();
@@ -382,7 +526,12 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         result = v == 0 ? double.nan : 1 / v;
         break;
       case 'x!':
-        result = _factorial(v.toInt()).toDouble();
+        if (v < 0 || v > 170 || (v - v.roundToDouble()).abs() > 1e-9) {
+          result = double.nan;
+        } else {
+          final f = _factorial(v.round());
+          result = f < 0 ? double.nan : f.toDouble();
+        }
         break;
       case 'π':
         result = math.pi;
@@ -407,10 +556,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   }
 
   int _factorial(int n) {
-    if (n < 0) return -1;
-    if (n > 20) return -1; // overflow guard
+    if (n < 0 || n > 20) return -1;
     int r = 1;
-    for (int i = 2; i <= n; i++) r *= i;
+    for (int i = 2; i <= n; i++) {
+      r *= i;
+    }
     return r;
   }
 
@@ -424,6 +574,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         case 'MR':
           _display = _memory;
           _waitingForOperand = false;
+          _hasResult = false;
           break;
         case 'M+':
           _memory = _formatResult(
@@ -460,6 +611,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
+        minimum: const EdgeInsets.only(bottom: 6),
         child: isLandscape ? _buildLandscape() : _buildPortrait(),
       ),
     );
@@ -501,60 +653,84 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   Widget _buildHeader({bool compact = false}) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: 16, vertical: compact ? 6 : 10),
-      color: const Color(0xFF0A0A0A),
+          horizontal: 14, vertical: compact ? 6 : 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0A0A),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFF1F1F1F)),
+        ),
+      ),
       child: Row(
         children: [
           ClipOval(
             child: Image.asset(
               'assets/images/logo_cetis.jpg',
-              width: compact ? 28 : 36,
-              height: compact ? 28 : 36,
+              width: compact ? 28 : 38,
+              height: compact ? 28 : 38,
               fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: compact ? 28 : 38,
+                height: compact ? 28 : 38,
+                color: const Color(0xFF222222),
+                child: Icon(
+                  Icons.school_rounded,
+                  size: compact ? 16 : 20,
+                  color: const Color(0xFFCC0000),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'CETIS 131',
-                style: TextStyle(
-                  color: const Color(0xFFCC0000),
-                  fontSize: compact ? 10 : 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 2,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'CETIS 131',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: const Color(0xFFCC0000),
+                    fontSize: compact ? 10 : 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
                 ),
-              ),
-              Text(
-                'Miguel A. Chavez Gonzaga',
-                style: TextStyle(
-                  color: const Color(0xFF888888),
-                  fontSize: compact ? 8 : 9,
-                  letterSpacing: 0.3,
+                Text(
+                  kAuthorFullName,
+                  maxLines: compact ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: const Color(0xFF9A9A9A),
+                    fontSize: compact ? 8 : 11,
+                    height: 1.2,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.2,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const Spacer(),
-          // DEG/RAD toggle
-          GestureDetector(
-            onTap: () => setState(() => _isDeg = !_isDeg),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: _isDeg
-                    ? const Color(0xFFCC0000)
-                    : const Color(0xFF222222),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _isDeg ? 'DEG' : 'RAD',
-                style: const TextStyle(
+          const SizedBox(width: 6),
+          Material(
+            color: _isDeg ? const Color(0xFFCC0000) : const Color(0xFF2A2A2A),
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => setState(() => _isDeg = !_isDeg),
+              borderRadius: BorderRadius.circular(12),
+              splashColor: Colors.white.withValues(alpha: 0.2),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Text(
+                  _isDeg ? 'DEG' : 'RAD',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
-                    fontWeight: FontWeight.w600),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ),
@@ -567,23 +743,33 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
-          horizontal: 20, vertical: compact ? 12 : 20),
-      color: const Color(0xFF0A0A0A),
+          horizontal: 18, vertical: compact ? 10 : 14),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF101010),
+            Color(0xFF0A0A0A),
+          ],
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // Expression
           Text(
             _expression,
-            style: const TextStyle(
-              color: Color(0xFF555555),
-              fontSize: 14,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.28),
+              fontSize: compact ? 12 : 14,
+              fontWeight: FontWeight.w400,
             ),
             textAlign: TextAlign.right,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           // Main display
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -591,10 +777,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             child: Text(
               _display,
               style: TextStyle(
-                color: Colors.white,
-                fontSize: compact ? 44 : 64,
-                fontWeight: FontWeight.w200,
-                letterSpacing: -2,
+                color: _display == 'Error' ? const Color(0xFFFF6B6B) : Colors.white,
+                fontSize: compact ? 38 : 48,
+                fontWeight: FontWeight.w300,
+                letterSpacing: -1.5,
               ),
             ),
           ),
@@ -622,140 +808,138 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   }
 
   Widget _buildPortraitKeypad({bool showScientific = true}) {
-    return Column(
-      children: [
-        // Scientific rows (portrait only)
-        if (showScientific) ...[
-          _buildScientificRow1(),
-          _buildScientificRow2(),
-          _buildScientificRow3(),
-          _buildScientificRow4(),
-          _buildMemoryRow(),
+    final numberPad = Expanded(
+      flex: showScientific ? 23 : 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildExpandedKeyRow([
+            _btn('AC', _onAC, type: BtnType.fn),
+            _btn('CE', _onCE, type: BtnType.fn),
+            _btn('⌫', _onBack, type: BtnType.fn),
+            _btn('%', _onPercent, type: BtnType.fn),
+            _btn('÷', () => _onOperator('÷'), type: BtnType.op),
+          ]),
+          _buildExpandedKeyRow([
+            _btn('7', () => _onDigit('7')),
+            _btn('8', () => _onDigit('8')),
+            _btn('9', () => _onDigit('9')),
+            _btn('×', () => _onOperator('×'), type: BtnType.op),
+          ]),
+          _buildExpandedKeyRow([
+            _btn('4', () => _onDigit('4')),
+            _btn('5', () => _onDigit('5')),
+            _btn('6', () => _onDigit('6')),
+            _btn('−', () => _onOperator('−'), type: BtnType.op),
+          ]),
+          _buildExpandedKeyRow([
+            _btn('1', () => _onDigit('1')),
+            _btn('2', () => _onDigit('2')),
+            _btn('3', () => _onDigit('3')),
+            _btn('+', () => _onOperator('+'), type: BtnType.op),
+          ]),
+          _buildExpandedKeyRow([
+            _btn('+/−', _onPlusMinus),
+            _btn('0', () => _onDigit('0')),
+            _btn('.', () => _onDigit('.')),
+            _btn('=', _calculate, type: BtnType.equals),
+          ]),
         ],
-        // Standard rows
+      ),
+    );
+
+    if (!showScientific) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [numberPad],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         Expanded(
+          flex: 10,
           child: Column(
-            children: [
-              _buildRow([
-                _btn('AC', _onAC, type: BtnType.fn),
-                _btn(_display == '0' ? 'AC' : '⌫', () {
-                  if (_display != '0') _onBack();
-                  else _onAC();
-                }, type: BtnType.fn),
-                _btn('%', _onPercent, type: BtnType.fn),
-                _btn('÷', () => _onOperator('÷'), type: BtnType.op),
-              ]),
-              _buildRow([
-                _btn('7', () => _onDigit('7')),
-                _btn('8', () => _onDigit('8')),
-                _btn('9', () => _onDigit('9')),
-                _btn('×', () => _onOperator('×'), type: BtnType.op),
-              ]),
-              _buildRow([
-                _btn('4', () => _onDigit('4')),
-                _btn('5', () => _onDigit('5')),
-                _btn('6', () => _onDigit('6')),
-                _btn('−', () => _onOperator('−'), type: BtnType.op),
-              ]),
-              _buildRow([
-                _btn('1', () => _onDigit('1')),
-                _btn('2', () => _onDigit('2')),
-                _btn('3', () => _onDigit('3')),
-                _btn('+', () => _onOperator('+'), type: BtnType.op),
-              ]),
-              _buildRow([
-                _btn('+/−', _onPlusMinus),
-                _btn('0', () => _onDigit('0')),
-                _btn('.', () => _onDigit('.')),
-                _btn('=', _calculate, type: BtnType.equals),
-              ]),
-            ],
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: _scientificKeyRows(),
           ),
         ),
+        numberPad,
       ],
     );
   }
 
-  Widget _buildScientificRow1() {
-    return _buildRow([
-      _btn(_isSecond ? 'sin⁻¹' : 'sin',
-          () => _onScientific(_isSecond ? 'asin' : 'sin'), type: BtnType.sci),
-      _btn(_isSecond ? 'cos⁻¹' : 'cos',
-          () => _onScientific(_isSecond ? 'acos' : 'cos'), type: BtnType.sci),
-      _btn(_isSecond ? 'tan⁻¹' : 'tan',
-          () => _onScientific(_isSecond ? 'atan' : 'tan'), type: BtnType.sci),
-      _btn(_isSecond ? 'sinh' : 'sinh',
-          () => _onScientific('sinh'), type: BtnType.sci),
-      _btn(_isSecond ? 'cosh' : 'cosh',
-          () => _onScientific('cosh'), type: BtnType.sci),
-    ]);
-  }
-
-  Widget _buildScientificRow2() {
-    return _buildRow([
-      _btn(_isSecond ? '10ˣ' : 'log',
-          () => _onScientific(_isSecond ? '10ˣ' : 'log'), type: BtnType.sci),
-      _btn(_isSecond ? 'eˣ' : 'ln',
-          () => _onScientific(_isSecond ? 'eˣ' : 'ln'), type: BtnType.sci),
-      _btn(_isSecond ? '2ˣ' : 'log₂',
-          () => _onScientific(_isSecond ? '2ˣ' : 'log2'), type: BtnType.sci),
-      _btn('π', () => _onScientific('π'), type: BtnType.sci),
-      _btn('e', () => _onScientific('e'), type: BtnType.sci),
-    ]);
-  }
-
-  Widget _buildScientificRow3() {
-    return _buildRow([
-      _btn(_isSecond ? 'x³' : 'x²',
-          () => _onScientific(_isSecond ? 'x³' : 'x²'), type: BtnType.sci),
-      _btn(_isSecond ? '∛' : '√',
-          () => _onScientific(_isSecond ? '∛' : '√'), type: BtnType.sci),
-      _btn('yˣ', () => _onOperator('yˣ'), type: BtnType.sci),
-      _btn('ˣ√y', () => _onOperator('ˣ√y'), type: BtnType.sci),
-      _btn('1/x', () => _onScientific('1/x'), type: BtnType.sci),
-    ]);
-  }
-
-  Widget _buildScientificRow4() {
-    return _buildRow([
-      _btn(
-        '2nd',
-        () => setState(() => _isSecond = !_isSecond),
-        type: _isSecond ? BtnType.op : BtnType.sci,
-      ),
-      _btn('x!', () => _onScientific('x!'), type: BtnType.sci),
-      _btn('abs', () => _onScientific('abs'), type: BtnType.sci),
-      _btn('EE', () => _onOperator('EE'), type: BtnType.sci),
-      _btn('Rand', () => _onScientific('Rand'), type: BtnType.sci),
-    ]);
-  }
-
-  Widget _buildMemoryRow() {
-    return _buildRow([
-      _btn('MC', () => _onMemory('MC'), type: BtnType.sci),
-      _btn('MR', () => _onMemory('MR'), type: BtnType.sci),
-      _btn('M+', () => _onMemory('M+'), type: BtnType.sci),
-      _btn('M-', () => _onMemory('M-'), type: BtnType.sci),
-      _btn('MS', () => _onMemory('MS'), type: BtnType.sci),
-    ]);
+  /// Filas de funciones científicas (reutilizadas en vertical y en modo horizontal).
+  List<Widget> _scientificKeyRows() {
+    return [
+      _buildExpandedKeyRow([
+        _btn(_isSecond ? 'sin⁻¹' : 'sin',
+            () => _onScientific(_isSecond ? 'asin' : 'sin'), type: BtnType.sci),
+        _btn(_isSecond ? 'cos⁻¹' : 'cos',
+            () => _onScientific(_isSecond ? 'acos' : 'cos'), type: BtnType.sci),
+        _btn(_isSecond ? 'tan⁻¹' : 'tan',
+            () => _onScientific(_isSecond ? 'atan' : 'tan'), type: BtnType.sci),
+        _btn(_isSecond ? 'sinh⁻¹' : 'sinh',
+            () => _onScientific(_isSecond ? 'asinh' : 'sinh'), type: BtnType.sci),
+        _btn(_isSecond ? 'cosh⁻¹' : 'cosh',
+            () => _onScientific(_isSecond ? 'acosh' : 'cosh'), type: BtnType.sci),
+      ]),
+      _buildExpandedKeyRow([
+        _btn(_isSecond ? '10ˣ' : 'log',
+            () => _onScientific(_isSecond ? '10ˣ' : 'log'), type: BtnType.sci),
+        _btn(_isSecond ? 'eˣ' : 'ln',
+            () => _onScientific(_isSecond ? 'eˣ' : 'ln'), type: BtnType.sci),
+        _btn(_isSecond ? '2ˣ' : 'log₂',
+            () => _onScientific(_isSecond ? '2ˣ' : 'log2'), type: BtnType.sci),
+        _btn(_isSecond ? 'tanh⁻¹' : 'tanh',
+            () => _onScientific(_isSecond ? 'atanh' : 'tanh'), type: BtnType.sci),
+        _btn('π', () => _onScientific('π'), type: BtnType.sci),
+        _btn('e', () => _onScientific('e'), type: BtnType.sci),
+      ]),
+      _buildExpandedKeyRow([
+        _btn(_isSecond ? 'x³' : 'x²',
+            () => _onScientific(_isSecond ? 'x³' : 'x²'), type: BtnType.sci),
+        _btn(_isSecond ? '∛' : '√',
+            () => _onScientific(_isSecond ? '∛' : '√'), type: BtnType.sci),
+        _btn('yˣ', () => _onOperator('yˣ'), type: BtnType.sci),
+        _btn('ˣ√y', () => _onOperator('ˣ√y'), type: BtnType.sci),
+        _btn('1/x', () => _onScientific('1/x'), type: BtnType.sci),
+      ]),
+      _buildExpandedKeyRow([
+        _btn(
+          '2nd',
+          () => setState(() => _isSecond = !_isSecond),
+          type: _isSecond ? BtnType.op : BtnType.sci,
+        ),
+        _btn('x!', () => _onScientific('x!'), type: BtnType.sci),
+        _btn('abs', () => _onScientific('abs'), type: BtnType.sci),
+        _btn('EE', () => _onOperator('EE'), type: BtnType.sci),
+        _btn('Rand', () => _onScientific('Rand'), type: BtnType.sci),
+      ]),
+      _buildExpandedKeyRow([
+        _btn('MC', () => _onMemory('MC'), type: BtnType.sci),
+        _btn('MR', () => _onMemory('MR'), type: BtnType.sci),
+        _btn('M+', () => _onMemory('M+'), type: BtnType.sci),
+        _btn('M-', () => _onMemory('M-'), type: BtnType.sci),
+        _btn('MS', () => _onMemory('MS'), type: BtnType.sci),
+      ]),
+    ];
   }
 
   Widget _buildScientificPad() {
     return Column(
-      children: [
-        _buildScientificRow1(),
-        _buildScientificRow2(),
-        _buildScientificRow3(),
-        _buildScientificRow4(),
-        _buildMemoryRow(),
-      ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: _scientificKeyRows(),
     );
   }
 
-  Widget _buildRow(List<Widget> btns) {
+  Widget _buildExpandedKeyRow(List<Widget> btns) {
     return Expanded(
       child: Row(
-          children: btns.map((b) => Expanded(child: b)).toList()),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: btns.map((b) => Expanded(child: b)).toList(),
+      ),
     );
   }
 
@@ -765,54 +949,51 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     Color fg;
     switch (type) {
       case BtnType.fn:
-        bg = const Color(0xFF333333);
+        bg = const Color(0xFF3A3A3A);
         fg = Colors.white;
         break;
       case BtnType.op:
-        bg = const Color(0xFFCC0000);
+        bg = const Color(0xFFD40000);
         fg = Colors.white;
         break;
       case BtnType.equals:
-        bg = const Color(0xFFCC0000);
+        bg = const Color(0xFFD40000);
         fg = Colors.white;
         break;
       case BtnType.sci:
-        bg = const Color(0xFF1C1C1C);
-        fg = const Color(0xFFFF6666);
+        bg = const Color(0xFF1E1E1E);
+        fg = const Color(0xFFFF7A7A);
         break;
       case BtnType.num:
-        bg = const Color(0xFF1C1C1C);
+        bg = const Color(0xFF232323);
         fg = Colors.white;
         break;
     }
 
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        margin: const EdgeInsets.all(1.5),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: type == BtnType.equals || type == BtnType.op
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFCC0000).withOpacity(0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  )
-                ]
-              : null,
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: fg,
-              fontSize: _labelFontSize(label),
-              fontWeight: FontWeight.w500,
+    final radius = BorderRadius.circular(10);
+    return Padding(
+      padding: const EdgeInsets.all(1.5),
+      child: Material(
+        color: bg,
+        borderRadius: radius,
+        elevation: type == BtnType.equals || type == BtnType.op ? 2 : 0,
+        shadowColor: const Color(0xFFCC0000).withValues(alpha: 0.4),
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          borderRadius: radius,
+          splashColor: const Color(0xFFCC0000).withValues(alpha: 0.22),
+          highlightColor: Colors.white.withValues(alpha: 0.06),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: fg,
+                fontSize: _labelFontSize(label, type),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
@@ -820,10 +1001,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     );
   }
 
-  double _labelFontSize(String label) {
-    if (label.length > 5) return 11;
-    if (label.length > 3) return 13;
-    return 16;
+  double _labelFontSize(String label, BtnType type) {
+    final base = type == BtnType.sci ? 11.5 : 15.0;
+    if (label.length > 6) return base - 3;
+    if (label.length > 4) return base - 1.5;
+    return base;
   }
 }
 
